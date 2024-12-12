@@ -10,7 +10,11 @@ from idl_definitions.msg import (
 from ros2_mindrove.mindrove_configs import MINDROVE_ROS_TOPIC_NAME
 from pi_user_input_node.user_input_node_config import USER_INPUT_TOPIC_NAME, USER_INPUT_QOS_PROFILE
 from ur10e_custom_control.ur10e_typedefs import URService
+from exercise_decoder_node.exercise_decoder_node_configs import *
+
 from ur_msgs.srv._set_speed_slider_fraction import SetSpeedSliderFraction_Request
+from std_srvs.srv import Trigger
+from std_msgs.msg import Float64
 
 import threading
 import numpy as np
@@ -47,11 +51,13 @@ class SimpleSpeedDecoder:
             deque(maxlen = 100) for _ in range(8)
         ] # using 125 data-points
 
+        self._active_last_check = False
+
         # FFC offset
-        self._ffc_offset = -(500 // 60)
+        self._ffc_offset = (500 // 60)
 
         # TODO: tune this...
-        self._emg_activation_threshold = 0.05
+        self._emg_activation_threshold = 100
 
         # Initialize fatigue input to zero
         self._fatigue_input: int = 0
@@ -69,6 +75,24 @@ class SimpleSpeedDecoder:
             timeout = 10
         )
 
+        self._mindrove_activation_service = self._node.create_service(
+            Trigger,
+            MINDROVE_ACTIVATION_SERVICE,
+            self._activate_mindrove
+        )
+
+        self._mindrove_deactivation_service = self._node.create_service(
+            Trigger,
+            MINDROVE_DEACTIVATION_SERVICE,
+            self._deactivate_mindrove
+        )
+
+        self._mindrove_filtered_publisher = self._node.create_publisher(
+            Float64,
+            MINDROVE_FILTERED_OUTPUT,
+            qos_profile = MINDROVE_FILTERED_OUTPUT_QOS
+        )
+
         self._timer = self._node.create_timer(
             refresh_rate,
             self.run_decode
@@ -80,6 +104,27 @@ class SimpleSpeedDecoder:
             _ret = len(self._raw_emg_data[0]) > 0
 
         return _ret
+    
+    def _activate_mindrove(self, request, response):
+        # TODO: input argument type-hints
+        with self._lock:
+            self._mindrove_active = True
+
+        response.success = True
+        response.message = "Activated Mindrove"
+
+        return response
+
+    def _deactivate_mindrove(self, request, response):
+        # TODO: input argument type-hints
+        with self._lock:
+            self._mindrove_active = False
+
+        response.success = True
+        response.message = "Deactivated Mindrove"
+
+        return response
+
 
     def update_armband_info(self, msg: MindroveArmBandEightChannelMsg):
         with self._lock:
@@ -93,7 +138,7 @@ class SimpleSpeedDecoder:
                     # The low-pass filter (moving average) will be 
                     # applied at the point of analysis
                     self._filt_emg_data[i].append(
-                        abs(dp - (self._raw_emg_data[-self._ffc_offset] if self._ffc_offset <= len(self._raw_emg_data) else 0.0))
+                        abs(dp - (self._raw_emg_data[i][-self._ffc_offset] if self._ffc_offset <= len(self._raw_emg_data[i]) else 0.0))
                     )
 
                     self._raw_emg_data[i].append(dp)
@@ -107,10 +152,26 @@ class SimpleSpeedDecoder:
         factor = 0
 
         if self.is_emg_data_present:
-            avg_magnitude = np.average([x for x in np.average(self._filt_emg_data)])
-            if avg_magnitude >= self._emg_activation_threshold:
+            avg_magnitude_filt = np.average([np.average(x) for x in self._filt_emg_data])
+
+            # Publish filtered data
+            self._mindrove_filtered_publisher.publish(Float64(data = avg_magnitude_filt))
+
+            if self._mindrove_active and avg_magnitude_filt >= self._emg_activation_threshold:
+                if not self._active_last_check:
+                    self._node.get_logger().info("EMG activation threshold exceeded")
+
                 # If we are above the desired threshold, activate the fatigue input
                 factor = 1
+
+                self._active_last_check = True
+            else:
+                if self._active_last_check:
+                    self._node.get_logger().info("EMG activation threshold dropped")
+
+                self._active_last_check = False
+
+                factor = 0
         else:
             # If there is no armband active, just always set the on/off factor to "on",
             # in order to remove the dependency of the armband

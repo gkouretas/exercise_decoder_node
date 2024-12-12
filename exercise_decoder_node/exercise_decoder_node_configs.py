@@ -1,0 +1,5 @@
+MINDROVE_ACTIVATION_SERVICE = "simple_exercise_decoder/mindrove_activation_service"
+MINDROVE_DEACTIVATION_SERVICE = "simple_exercise_decoder/mindrove_deactivation_service"
+
+MINDROVE_FILTERED_OUTPUT = "simple_exercise_decoder/mindrove_filtered_output"
+MINDROVE_FILTERED_OUTPUT_QOS = 0

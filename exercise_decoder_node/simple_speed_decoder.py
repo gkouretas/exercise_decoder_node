@@ -45,11 +45,11 @@ class SimpleSpeedDecoder:
         # a buffer of length=100.
         self._raw_emg_data = [
             deque(maxlen = 100) for _ in range(8)
-        ] # using 125 data-points
+        ] # using 100 data-points
 
         self._filt_emg_data = [
             deque(maxlen = 100) for _ in range(8)
-        ] # using 125 data-points
+        ] # using 100 data-points
 
         self._active_last_check = False
 
@@ -57,10 +57,11 @@ class SimpleSpeedDecoder:
         self._ffc_offset = (500 // 60)
 
         # TODO: tune this...
-        self._emg_activation_threshold = 100
+        self._emg_activation_threshold: float = 100.0
 
         # Initialize fatigue input to zero
         self._fatigue_input: int = 0
+        self._mindrove_active = False
 
         self._user_input_subscriber = self._node.create_subscription(
             UserInputMsg,
@@ -86,6 +87,12 @@ class SimpleSpeedDecoder:
             MINDROVE_DEACTIVATION_SERVICE,
             self._deactivate_mindrove
         )
+
+        # self._mindrove_threshold_service = self._node.create_service(
+        #     Float64,
+        #     MINDROVE_FILTERED_OUTPUT,
+        #     qos_profile = MINDROVE_FILTERED_OUTPUT_QOS
+        # )
 
         self._mindrove_filtered_publisher = self._node.create_publisher(
             Float64,
@@ -157,7 +164,9 @@ class SimpleSpeedDecoder:
             # Publish filtered data
             self._mindrove_filtered_publisher.publish(Float64(data = avg_magnitude_filt))
 
-            if self._mindrove_active and avg_magnitude_filt >= self._emg_activation_threshold:
+            if not self._mindrove_active:
+                factor = 1
+            elif self._mindrove_active and avg_magnitude_filt >= self._emg_activation_threshold:
                 if not self._active_last_check:
                     self._node.get_logger().info("EMG activation threshold exceeded")
 
@@ -180,6 +189,7 @@ class SimpleSpeedDecoder:
         # Compute scaling factor. Currently is simply a function of manual user fatigue input
         # and if there is muscle activation detected.
         _scaling_factor = float(factor * 0.01 * self._fatigue_input)
+        self._node.get_logger().info(f"{_scaling_factor} {factor} {self._fatigue_input}")
 
         if abs(_scaling_factor - self._last_scaling_factor) > 1e-5:
             # If a new scaling factor has been sent from user input node, request the

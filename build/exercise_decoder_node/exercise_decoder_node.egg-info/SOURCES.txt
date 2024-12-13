@@ -1,0 +1,14 @@
+package.xml
+setup.cfg
+setup.py
+exercise_decoder_node/__init__.py
+exercise_decoder_node/exercise_decoder_node_configs.py
+exercise_decoder_node/simple_speed_decoder.py
+exercise_decoder_node.egg-info/PKG-INFO
+exercise_decoder_node.egg-info/SOURCES.txt
+exercise_decoder_node.egg-info/dependency_links.txt
+exercise_decoder_node.egg-info/entry_points.txt
+exercise_decoder_node.egg-info/requires.txt
+exercise_decoder_node.egg-info/top_level.txt
+exercise_decoder_node.egg-info/zip-safe
+resource/exercise_decoder_node

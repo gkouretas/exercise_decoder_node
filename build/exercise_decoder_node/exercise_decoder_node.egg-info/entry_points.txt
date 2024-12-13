@@ -1,3 +1,0 @@
-[console_scripts]
-simple_speed_decoder = exercise_decoder_node.simple_speed_decoder:main
-

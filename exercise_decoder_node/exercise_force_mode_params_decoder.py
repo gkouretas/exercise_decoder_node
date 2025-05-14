@@ -20,7 +20,7 @@ _USE_PREDICTED = False
 # At lower bound fatigue (0%), damping should be at the maximum,
 # and at upper bound fatigue (100%), damping should be at the minimum
 _DAMPING_LOWER_BOUND = 0.5
-_DAMPING_UPPER_BOUND = 0.1
+_DAMPING_UPPER_BOUND = 0.01
 
 def map(x, in_min: float, in_max: float, out_min: float, out_max: float):
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
@@ -61,6 +61,8 @@ class ExerciseForceModeParamsDecoder:
             self._signal.clear()
 
             try:
+                self._node.get_logger().info(f"Sending {factor}")
+
                 response = self._force_mode_params_service.call(
                     request=SetForceModeParams.Request(damping_factor=factor)
                 )
@@ -75,7 +77,7 @@ class ExerciseForceModeParamsDecoder:
         if _USE_PREDICTED:
             fatigue = msg.predicted
         else:
-            fatigue = msg.actual / 100.0
+            fatigue = msg.actual
 
         self._mapped_fatigue = map(
             fatigue,
@@ -85,10 +87,15 @@ class ExerciseForceModeParamsDecoder:
             _DAMPING_UPPER_BOUND
         )
 
+        self._node.get_logger().info(f"Fatigue mapping: {fatigue} -> {self._mapped_fatigue}")
+
         # Set the signal as ready
         self._signal.set()
 
+def main():
+    rclpy.init()
+    
+    node = Node("decoder_node")
+    force_mode_params_decoder = ExerciseForceModeParamsDecoder(node)
 
-        
-
-        
+    rclpy.spin(node)

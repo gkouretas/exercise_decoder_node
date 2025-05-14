@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'simple_speed_decoder = exercise_decoder_node.simple_speed_decoder:main'
+            'simple_speed_decoder = exercise_decoder_node.simple_speed_decoder:main',
+            'force_mode_params_decoder = exercise_decoder_node.exercise_force_mode_params_decoder:main'
         ],
     },
 )

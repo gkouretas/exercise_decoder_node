@@ -19,7 +19,7 @@ _USE_PREDICTED = False
 # Lower/upper bound damping factors
 # At lower bound fatigue (0%), damping should be at the maximum,
 # and at upper bound fatigue (100%), damping should be at the minimum
-_DAMPING_LOWER_BOUND = 0.5
+_DAMPING_LOWER_BOUND = 1.0
 _DAMPING_UPPER_BOUND = 0.01
 
 def map(x, in_min: float, in_max: float, out_min: float, out_max: float):
